@@ -13,6 +13,7 @@ class Sensor():
         # initialise lists
         self.unixtime = []
         self.values   = []
+        self.anomaly  = []
 
 
     def get_timestamps(self):
@@ -32,24 +33,5 @@ class Temperature(Sensor):
         # append
         self.unixtime.append(ux)
         self.values.append(event['data']['temperature']['value'])
-
-
-class Proximity(Sensor):
-
-    def new_event_data(self, event):
-        # convert to unixtime
-        _, ux = hlp.convert_event_data_timestamp(event['data']['objectPresent']['updateTime'])
-
-        # convert state to boolean
-        if event['data']['objectPresent']['state'] == 'PRESENT':
-            state = True
-        else:
-            state = False
-
-        # append
-        self.unixtime.append(ux)
-        self.values.append(state)
-
-        # update own state
-        self.state = state
+        self.anomaly.append(0)
 

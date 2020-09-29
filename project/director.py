@@ -1,20 +1,22 @@
 # packages
 import os
-import sys
 import time
 import json
 import argparse
 import datetime
 import requests
 import sseclient
+from scipy.interpolate import interp1d
+from sklearn.cluster import DBSCAN
+import numpy             as np
 import matplotlib.pyplot as plt
 
 # project
 from project.sensors import Temperature
-from project.sensors import Proximity
-from config.sensorlist import sensorlist
-from config.styling import styling_init
-import project.helpers as hlp
+from config.styling  import styling_init
+import project.helpers   as hlp
+import config.parameters as prm
+import config.styling    as stl
 
 
 class Director():
@@ -63,6 +65,8 @@ class Director():
         # general arguments
         parser.add_argument('--starttime', metavar='', help='Event history UTC starttime [YYYY-MM-DDTHH:MM:SSZ].', required=False, default=now)
         parser.add_argument('--endtime',   metavar='', help='Event history UTC endtime [YYYY-MM-DDTHH:MM:SSZ].',   required=False, default=now)
+        parser.add_argument('--timestep',  metavar='', help='Time in seconds between clusterings.', required=False, type=int, default=prm.timestep)
+        parser.add_argument('--clusterwidth', metavar='', help='Seconds of data in cluster.', required=False, type=int, default=prm.clusterwidth)
 
         # boolean flags
         parser.add_argument('--no-plot',   action='store_true', help='Suppress streaming plot.')
@@ -119,27 +123,22 @@ class Director():
 
         # empty lists of devices
         self.temperatures = []
-        self.proximities  = []
-        self.sensor_ids   = []
+        self.sensor_ids   = {}
+        idx               = 0
 
         # iterate list of devices
         for device in self.project_devices:
             # get device id
             device_id = os.path.basename(device['name'])
-            
-            # look for device-id in sensorlist
-            for sensor in sensorlist:
-                if sensor['id'] == device_id:
-                    # check if temperature
-                    if device['type'] == 'temperature':
-                        # append an initialised desk object
-                        self.temperatures.append(Temperature(device, device_id, self.args))
-                        self.sensor_ids.append(device_id)
 
-                    # check if door
-                    elif device['type'] == 'proximity':
-                        self.proximities.append(Proximity(device, device_id, self.args))
-                        self.sensor_ids.append(device_id)
+            # accept only labeled devices
+            if prm.project_sensor_label in device['labels'].keys():
+                # accept only temperature sensors
+                if device['type'] == 'temperature':
+                    # append an initialised desk object
+                    self.temperatures.append(Temperature(device, device_id, self.args))
+                    self.sensor_ids[device_id] = idx
+                    idx += 1
 
 
     def __new_event_data(self, event_data, cout=True):
@@ -158,19 +157,14 @@ class Director():
         # get id of source sensor
         source_id = os.path.basename(event_data['targetName'])
 
-        # list of fields we're looking for
-        valid_fields = ['temperature', 'objectPresent']
-
-        # verify temperature event
-        if any(field in event_data['data'].keys() for field in valid_fields):
-            # find sensor to related id
-            for sensor in self.temperatures + self.proximities:
-                if sensor.sensor_id == source_id:
-                    # cout
-                    if cout: print('-- New Event for {}.'.format(source_id))
-
-                    # serve event to desk
-                    sensor.new_event_data(event_data)
+        # find sensor to related id
+        sensor = self.temperatures[self.sensor_ids[source_id]]
+        if sensor.sensor_id == source_id:
+            # cout
+            if cout: print('-- New Event for {}.'.format(source_id))
+        
+            # serve event to desk
+            sensor.new_event_data(event_data)
 
 
     def __fetch_event_history(self):
@@ -232,13 +226,38 @@ class Director():
         # get list of hsitoric events
         self.__fetch_event_history()
         
-        # estimate occupancy for history 
-        cc = 0
-        for i, event_data in enumerate(self.event_history):
-            cc = hlp.loop_progress(cc, i, len(self.event_history), 25, name='event history')
+        # generate unixtime axis for all events in history
+        n_events               = len(self.event_history)
+        event_history_unixtime = [hlp.convert_event_data_timestamp(h['data']['temperature']['updateTime'])[1] for h in self.event_history]
 
-            # serve event to director
-            self.__new_event_data(event_data, cout=False)
+        # time parameters
+        unix_start = event_history_unixtime[0]
+        unix_step  = 1
+        unix_now   = unix_start
+        unix_end   = event_history_unixtime[-1]
+
+        # simulate time
+        i  = 0
+        ic = 0
+        while unix_now <= unix_end:
+            # print progress
+            ic = hlp.loop_progress(ic, i, n_events, 15)
+
+            # catch up with events that have "occured"
+            while i < n_events and event_history_unixtime[i] < unix_now:
+                # serve event to self
+                self.__new_event_data(self.event_history[i], cout=False)
+
+                # iterate
+                i += 1
+
+            # plot if timestep has passed
+            if self.__check_timestep(unix_now):
+                # update heatmap
+                self.__cluster(unix_now)
+
+            # iterate time
+            unix_now += unix_step
 
         # plot
         if not self.args['no_plot']:
@@ -304,6 +323,121 @@ class Director():
             time.sleep(1)
 
 
+    def __check_timestep(self, unixtime):
+        """
+        Check if more time than --timestep has passed since last heatmap update.
+
+        Parameters
+        ----------
+        unixtime : int
+            Seconds since 01-Jan 1970.
+
+        Returns
+        -------
+        return : bool
+            True if time to update heatmap.
+            False if we're still waiting.
+
+        """
+
+        # check time since last update
+        if self.last_update < 0:
+            # update time to this event time
+            self.last_update = unixtime
+            return False
+
+        elif unixtime - self.last_update > self.args['timestep']:
+            # update timer to this event time
+            self.last_update = unixtime
+
+            return True
+
+
+    def __cluster(self, ux_now):
+        for t in self.temperatures:
+            if len(t.unixtime) < 3:
+                return
+
+        # check if we have enough data
+        first_event_ux = max([t.unixtime[0] for t in self.temperatures])
+        if ux_now - first_event_ux < self.args['clusterwidth']:
+            return
+
+        # define interval
+        tl = ux_now - self.args['clusterwidth']
+        tr = ux_now
+
+        # cut series to window interval
+        xx = []
+        yy = []
+        for t in self.temperatures:
+            x = np.array(t.unixtime)
+            y = np.array(t.values)[(x >= tl) & (x <= tr)]
+            x = x[(x >= tl) & (x <= tr)]
+            xx.append(x)
+            yy.append(y)
+
+            # exit if we're missing data
+            if len(y) < 3:
+                return
+
+        # set interval limits to inner timestamps for series
+        for x in xx:
+            if x[0] > tl:
+                tl = x[0]
+            if x[-1] < tr:
+                tr = x[-1]
+
+        # create a common x-axis for interpolation
+        rex = np.arange(tl, tr, 900)
+        rey = []
+
+        # interpolate series to rex axis
+        for i in range(len(xx)):
+            # interpolate
+            f = interp1d(xx[i], yy[i], kind='linear')
+            rey.append(f(rex))
+        rey = np.array(rey)
+
+        # sklearn dbscan implementation
+        c = DBSCAN(eps=self.__dynamic_epsilon(rey)*prm.threshold_modifier, min_samples=prm.minimum_cluster_size).fit(rey)
+
+        if 0:
+            plt.cla()
+            for i in range(len(rey)):
+                if c.labels_[i] < 0:
+                    cl = 'orange'
+                    lw = 2.5
+                else:
+                    cl = 'gray'
+                    lw = 1
+                plt.plot(xx, rey[i], color=cl, linewidth=lw)
+            plt.waitforbuttonpress()
+
+        # set anomaly triggers
+        imax = np.argmax(np.bincount(c.labels_[c.labels_ >= 0]))
+        for i in range(len(self.temperatures)):
+            t = self.temperatures[i]
+            # if c.labels_[i] != imax or c.labels_[i] < 0:
+            if c.labels_[i] < 0:
+                ix = len(t.values)-1
+                while ix >= 0 and t.unixtime[ix] > tl:
+                    t.anomaly[ix] = 1
+                    ix -= 1
+
+
+    def __dynamic_epsilon(self, x):
+        m = np.median(x, axis=0)
+        mm = []
+        for y in x:
+            d = 0
+            for i in range(len(y)):
+                d += (y[i]-m[i])**2
+            d = np.sqrt(d)
+            mm.append(d)
+        return np.median(mm)
+
+
     def initialise_plot(self):
         self.fig, self.ax = plt.subplots()
 
@@ -317,8 +451,26 @@ class Director():
         self.ax.cla()
 
         # draw sensor data
-        for sensor in self.temperatures + self.proximities:
-            self.ax.plot(sensor.get_timestamps(), sensor.get_values(), label=sensor.sensor_id)
+        for i, sensor in enumerate(self.temperatures):
+            anomaly = np.array(sensor.anomaly)
+            good = np.zeros(len(sensor.values))
+            good[:] = sensor.values
+            good[anomaly==1] = None
+            bad  = np.zeros(len(sensor.values))
+            bad[:] = sensor.values
+            bad[anomaly==0] = None
+
+            if i == 0:
+                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['ns'], linestyle=':', label='temperature')
+                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss'], linestyle='-', label='outlier')
+            else:
+                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['ns'], linestyle=':')
+                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss'], linestyle='-')
+
+        # set axis labels
+        self.ax.set_xlabel('timestamp')
+        self.ax.set_ylabel('temperature [degC]')
+        self.ax.legend()
 
         if blocking:
             if show:
