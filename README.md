@@ -1,4 +1,4 @@
-# Outlier Detection on Multiple Temperature Datastreams
+# Outlier Detection
 
 ## What am I?
 This repository contains the example code talked about in [this application note (TBA)](https://support.disruptive-technologies.com/), presenting a method of detecting outliers in multiple Disruptive Technologies (DT) Wireless Temperature Sensor timeseries using DBSCAN clustering. Written in Python 3, it uses the DT Developer API to communicate with a DT Studio project and its sensors. 
