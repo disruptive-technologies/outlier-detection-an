@@ -1,6 +1,9 @@
 # packages
 import matplotlib
 
+# set backend
+matplotlib.use('TkAgg')
+
 def styling_init():
     # font
     font = {'size': 14}
