@@ -1,5 +1,5 @@
 # project
-from project.director import Director
+from outlier.director import Director
 
 # Fill in from the Service Account and Project:
 USERNAME   = 'bsvsebr24spg00b250ag'       # this is the key

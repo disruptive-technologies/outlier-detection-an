@@ -12,16 +12,39 @@ import numpy             as np
 import matplotlib.pyplot as plt
 
 # project
-from project.sensors import Temperature
+from outlier.sensors import Temperature
 from config.styling  import styling_init
-import project.helpers   as hlp
+import outlier.helpers   as hlp
 import config.parameters as prm
 import config.styling    as stl
 
 
 class Director():
+    """
+    Handles all API interfacing, including fetching sensors list and updating them.
+    Creates one Sensor object per temperature sensor in scheme.
+    When new event data arrives in stream, delegate to the correct sensor for update.
+    When time, triggers clustering function for outlier detection.
+
+    """
 
     def __init__(self, username='', password='', project_id='', api_url_base=''):
+        """
+        Director class constructor.
+
+        Parameters
+        ----------
+        username : str
+            DT Studio service account key.
+        password : str
+            DT Studio service account secret.
+        project_id : str
+            DT Studio project identifier.
+        api_url_base : str
+            Endpoint for API.
+
+        """
+
         # give to self
         self.username     = username
         self.password     = password
@@ -66,7 +89,7 @@ class Director():
         parser.add_argument('--starttime', metavar='', help='Event history UTC starttime [YYYY-MM-DDTHH:MM:SSZ].', required=False, default=now)
         parser.add_argument('--endtime',   metavar='', help='Event history UTC endtime [YYYY-MM-DDTHH:MM:SSZ].',   required=False, default=now)
         parser.add_argument('--timestep',  metavar='', help='Time in seconds between clusterings.', required=False, type=int, default=prm.timestep)
-        parser.add_argument('--clusterwidth', metavar='', help='Seconds of data in cluster.', required=False, type=int, default=prm.clusterwidth)
+        parser.add_argument('--window', metavar='', help='Seconds of data in cluster.', required=False, type=int, default=prm.window)
 
         # boolean flags
         parser.add_argument('--no-plot',   action='store_true', help='Suppress streaming plot.')
@@ -102,6 +125,11 @@ class Director():
 
 
     def __fetch_project_devices(self):
+        """
+        Fetch list of all devices in project from API.
+
+        """
+
         # request list
         devices_list_url = "{}/projects/{}/devices".format(self.api_url_base,  self.project_id)
         device_listing = requests.get(devices_list_url, auth=(self.username, self.password))
@@ -219,6 +247,11 @@ class Director():
         """
         Iterate through and calculate occupancy for event history.
 
+        Parameters
+        ----------
+        plot : bool
+            Will generate visualization after running history if True.
+
         """
 
         # do nothing if starttime not given
@@ -255,7 +288,7 @@ class Director():
 
             # plot if timestep has passed
             if self.__check_timestep(unix_now):
-                # update heatmap
+                # execute clustering outlier detection
                 self.__cluster(unix_now)
 
             # iterate time
@@ -351,22 +384,32 @@ class Director():
         elif unixtime - self.last_update > self.args['timestep']:
             # update timer to this event time
             self.last_update = unixtime
-
             return True
 
 
     def __cluster(self, ux_now):
+        """
+        Window, preprocess and cluster data with the aim of detecting outliers.
+
+        Parameters
+        ----------
+        ux_now : int
+            Unixtime at the moment of call.
+
+        """
+
+        # exit if data is missing
         for t in self.temperatures:
-            if len(t.unixtime) < 3:
+            if len(t.unixtime) < 1:
                 return
 
-        # check if we have enough data
+        # exit if less time than a window width has passed
         first_event_ux = max([t.unixtime[0] for t in self.temperatures])
-        if ux_now - first_event_ux < self.args['clusterwidth']:
+        if ux_now - first_event_ux < self.args['window']:
             return
 
         # define interval
-        tl = ux_now - self.args['clusterwidth']
+        tl = ux_now - self.args['window']
         tr = ux_now
 
         # cut series to window interval
@@ -429,6 +472,21 @@ class Director():
 
 
     def __dynamic_epsilon(self, x):
+        """
+        Calculate DBSCAN epsilon based on data.
+
+        Parameters
+        ----------
+        x : array_like
+            Feature array of data for which epsilon is calculated.
+
+        Returns
+        -------
+        epsilon : float
+            DBSCAN epsilon value for data.
+
+        """
+
         m = np.median(x, axis=0)
         mm = []
         for y in x:

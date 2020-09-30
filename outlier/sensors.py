@@ -1,10 +1,29 @@
 # project
-import project.helpers as hlp
+import outlier.helpers as hlp
 
 
 class Sensor():
+    """
+    One Sensor class instance per sensor in project used for outlier detection.
+    Receives new event data from director.
+
+    """
 
     def __init__(self, device, sensor_id, args):
+        """
+        Constructor for Sensor class.
+
+        Parameters
+        ----------
+        device : dict
+            Dictionary of device information fetched from API.
+        sensor_id : str
+            Sensor identifier.
+        args : dict
+            Dictionary of system arguments.
+
+        """
+
         # give to self
         self.device    = device
         self.sensor_id = sensor_id
