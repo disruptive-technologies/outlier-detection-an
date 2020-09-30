@@ -57,7 +57,7 @@ class Director():
         """
 
         # create parser object
-        parser = argparse.ArgumentParser(description='Explanatory information here.')
+        parser = argparse.ArgumentParser(description='Outlier detection for multistream temperature data.')
 
         # get UTC time now
         now = (datetime.datetime.utcnow().replace(microsecond=0)).isoformat() + 'Z'
@@ -157,14 +157,16 @@ class Director():
         # get id of source sensor
         source_id = os.path.basename(event_data['targetName'])
 
-        # find sensor to related id
-        sensor = self.temperatures[self.sensor_ids[source_id]]
-        if sensor.sensor_id == source_id:
-            # cout
-            if cout: print('-- New Event for {}.'.format(source_id))
-        
-            # serve event to desk
-            sensor.new_event_data(event_data)
+        # check if known id
+        if source_id in self.sensor_ids:
+            # find sensor to related id
+            sensor = self.temperatures[self.sensor_ids[source_id]]
+            if sensor.sensor_id == source_id:
+                # cout
+                if cout: print('-- New Event for {}.'.format(source_id))
+            
+                # serve event to desk
+                sensor.new_event_data(event_data)
 
 
     def __fetch_event_history(self):
@@ -314,10 +316,10 @@ class Director():
             except requests.exceptions.ChunkedEncodingError:
                 nth_reconnect += 1
                 print('An error occured, reconnection attempt {}/{}'.format(nth_reconnect, n_reconnects))
-            except KeyError:
-                print('Error in event package. Skipping...')
-                print(event_data)
-                print()
+            # except KeyError:
+            #     print('Error in event package. Skipping...')
+            #     print(event_data)
+            #     print()
             
             # wait 1s before attempting to reconnect
             time.sleep(1)
@@ -418,8 +420,8 @@ class Director():
         imax = np.argmax(np.bincount(c.labels_[c.labels_ >= 0]))
         for i in range(len(self.temperatures)):
             t = self.temperatures[i]
-            # if c.labels_[i] != imax or c.labels_[i] < 0:
-            if c.labels_[i] < 0:
+            if c.labels_[i] != imax or c.labels_[i] < 0:
+            # if c.labels_[i] < 0:
                 ix = len(t.values)-1
                 while ix >= 0 and t.unixtime[ix] > tl:
                     t.anomaly[ix] = 1
@@ -435,6 +437,7 @@ class Director():
                 d += (y[i]-m[i])**2
             d = np.sqrt(d)
             mm.append(d)
+
         return np.median(mm)
 
 
@@ -451,6 +454,7 @@ class Director():
         self.ax.cla()
 
         # draw sensor data
+        sensor = self.temperatures[0]
         for i, sensor in enumerate(self.temperatures):
             anomaly = np.array(sensor.anomaly)
             good = np.zeros(len(sensor.values))
@@ -461,15 +465,19 @@ class Director():
             bad[anomaly==0] = None
 
             if i == 0:
-                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['ns'], linestyle=':', label='temperature')
-                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss'], linestyle='-', label='outlier')
+                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['vb1'], linewidth=1, linestyle=':', label='temperature')
+                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss2'], linewidth=2, linestyle='-', label='outlier')
             else:
-                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['ns'], linestyle=':')
-                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss'], linestyle='-')
+                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['vb1'], linewidth=1, linestyle=':')
+                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss2'], linewidth=2, linestyle='-')
 
         # set axis labels
         self.ax.set_xlabel('timestamp')
         self.ax.set_ylabel('temperature [degC]')
+        self.ax.spines['right'].set_visible(False)
+        self.ax.spines['top'].set_visible(False)
+        self.ax.yaxis.set_ticks_position('left')
+        self.ax.xaxis.set_ticks_position('bottom')
         self.ax.legend()
 
         if blocking:
