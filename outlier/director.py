@@ -447,18 +447,6 @@ class Director():
         # sklearn dbscan implementation
         c = DBSCAN(eps=self.__dynamic_epsilon(rey)*prm.threshold_modifier, min_samples=prm.minimum_cluster_size).fit(rey)
 
-        if 0:
-            plt.cla()
-            for i in range(len(rey)):
-                if c.labels_[i] < 0:
-                    cl = 'orange'
-                    lw = 2.5
-                else:
-                    cl = 'gray'
-                    lw = 1
-                plt.plot(xx, rey[i], color=cl, linewidth=lw)
-            plt.waitforbuttonpress()
-
         # set anomaly triggers
         imax = np.argmax(np.bincount(c.labels_[c.labels_ >= 0]))
         for i in range(len(self.temperatures)):
