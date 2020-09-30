@@ -89,7 +89,7 @@ class Director():
         parser.add_argument('--starttime', metavar='', help='Event history UTC starttime [YYYY-MM-DDTHH:MM:SSZ].', required=False, default=now)
         parser.add_argument('--endtime',   metavar='', help='Event history UTC endtime [YYYY-MM-DDTHH:MM:SSZ].',   required=False, default=now)
         parser.add_argument('--timestep',  metavar='', help='Time in seconds between clusterings.', required=False, type=int, default=prm.timestep)
-        parser.add_argument('--window', metavar='', help='Seconds of data in cluster.', required=False, type=int, default=prm.window)
+        parser.add_argument('--window', metavar='', help='Seconds of data in clustering data window.', required=False, type=int, default=prm.window)
 
         # boolean flags
         parser.add_argument('--no-plot',   action='store_true', help='Suppress streaming plot.')

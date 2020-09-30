@@ -32,7 +32,7 @@ optional arguments:
   --starttime   Event history UTC starttime [YYYY-MM-DDTHH:MM:SSZ].
   --endtime     Event history UTC endtime [YYYY-MM-DDTHH:MM:SSZ].
   --timestep    Time in seconds between clusterings.
-  --window      Seconds of data in cluster.
+  --window      Seconds of data in clustering data window.
   --no-plot     Suppress streaming plot.
 ```
 
