@@ -408,9 +408,9 @@ class Director():
         if ux_now - first_event_ux < self.args['window']:
             return
 
-        # define interval
-        tl = ux_now - self.args['window']
-        tr = ux_now
+        # define interval left- and right flank
+        tl = int(ux_now - self.args['window'])
+        tr = int(ux_now)
 
         # cut series to window interval
         xx = []
@@ -447,15 +447,34 @@ class Director():
         # sklearn dbscan implementation
         c = DBSCAN(eps=self.__dynamic_epsilon(rey)*prm.threshold_modifier, min_samples=prm.minimum_cluster_size).fit(rey)
 
-        # set anomaly triggers
-        imax = np.argmax(np.bincount(c.labels_[c.labels_ >= 0]))
-        for i in range(len(self.temperatures)):
-            t = self.temperatures[i]
-            if c.labels_[i] != imax or c.labels_[i] < 0:
-            # if c.labels_[i] < 0:
+        # update outlier triggers for each sensor
+        self.__update_outlier_triggers(c.labels_, tl)
+
+
+    def __update_outlier_triggers(self, labels, tl):
+        """
+        Set sensor outlier triggers to 1 if label is not in main group.
+
+        Parameters
+        ----------
+        labels : list
+            List of cluster labels found by DBSCAN.
+        tl : int
+            Window unixtime left flank.
+
+        """
+
+        # find most occuring label index
+        imax = np.argmax(np.bincount(labels[labels >= 0]))
+
+        # set outlier triggers for sensors
+        for i, t in enumerate(self.temperatures):
+            # outlier if sensor label is not in main group
+            if labels[i] != imax or labels[i] < 0:
+                # set outlier triggers in window to 1
                 ix = len(t.values)-1
                 while ix >= 0 and t.unixtime[ix] > tl:
-                    t.anomaly[ix] = 1
+                    t.outlier[ix] = 1
                     ix -= 1
 
 

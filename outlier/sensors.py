@@ -29,7 +29,7 @@ class Sensor():
         # initialise lists
         self.unixtime = []
         self.values   = []
-        self.anomaly  = []
+        self.outlier  = []
 
 
     def get_timestamps(self):
@@ -73,5 +73,5 @@ class Temperature(Sensor):
         # append
         self.unixtime.append(ux)
         self.values.append(event['data']['temperature']['value'])
-        self.anomaly.append(0)
+        self.outlier.append(0)
 
