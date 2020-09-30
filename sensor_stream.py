@@ -21,6 +21,3 @@ if __name__ == '__main__':
     # stream
     d.run_stream()
 
-    # plot
-    # d.plot()
-
