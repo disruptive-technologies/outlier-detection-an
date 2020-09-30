@@ -164,7 +164,7 @@ class Director():
                 # accept only temperature sensors
                 if device['type'] == 'temperature':
                     # append an initialised desk object
-                    self.temperatures.append(Temperature(device, device_id, self.args))
+                    self.temperatures.append(Temperature(device, device_id))
                     self.sensor_ids[device_id] = idx
                     idx += 1
 

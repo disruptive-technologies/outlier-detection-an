@@ -9,7 +9,7 @@ class Sensor():
 
     """
 
-    def __init__(self, device, sensor_id, args):
+    def __init__(self, device, sensor_id):
         """
         Constructor for Sensor class.
 
@@ -19,15 +19,12 @@ class Sensor():
             Dictionary of device information fetched from API.
         sensor_id : str
             Sensor identifier.
-        args : dict
-            Dictionary of system arguments.
 
         """
 
         # give to self
         self.device    = device
         self.sensor_id = sensor_id
-        self.args      = args
 
         # initialise lists
         self.unixtime = []
@@ -44,8 +41,22 @@ class Sensor():
 
 
 class Temperature(Sensor):
+    """
+    Child of Sensor class representing temperature sensors specificly.
+
+    """
 
     def new_event_data(self, event):
+        """
+        Receive new temperature event data from director and append to lists.
+
+        Parameters
+        ----------
+        event : dict
+            Dictionary of event data information.
+
+        """
+
         # convert to unixtime
         _, ux = hlp.convert_event_data_timestamp(event['data']['temperature']['updateTime'])
 
