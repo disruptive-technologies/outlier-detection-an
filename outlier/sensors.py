@@ -33,10 +33,20 @@ class Sensor():
 
 
     def get_timestamps(self):
+        """
+        Return unixtime list after converting to datetime format.
+
+        """
+
         return hlp.ux2tx(self.unixtime)
     
 
     def get_values(self):
+        """
+        Return list of values.
+
+        """
+
         return self.values
 
 
