@@ -412,6 +412,40 @@ class Director():
         tl = int(ux_now - self.args['window'])
         tr = int(ux_now)
 
+        # get data from defined window interval
+        rex, rey = self.__isolate_recent_window(tl, tr)
+
+        # exit if we're missing more than half of our data
+        if len(rey) < len(self.temperatures)*0.5:
+            return
+
+        # sklearn dbscan implementation
+        c = DBSCAN(eps=self.__dynamic_epsilon(rey)*prm.threshold_modifier, min_samples=prm.minimum_cluster_size).fit(rey)
+
+        # update outlier triggers for each sensor
+        self.__update_outlier_triggers(c.labels_, tl)
+
+
+    def __isolate_recent_window(self, tl, tr):
+        """
+        Isolate the most recent window of data for use in clustering.
+        Data is uniformly resampled to synchronize events.
+
+        Parameters
+        tl : int
+            Window unixtime left flank.
+        tr : int
+            Window unixtime right flank.
+
+        Returns
+        -------
+        rex : array_like
+            Resampled window x-axis.
+        rey : array_like
+            Resampled window y-axis.
+
+        """
+
         # cut series to window interval
         xx = []
         yy = []
@@ -419,12 +453,11 @@ class Director():
             x = np.array(t.unixtime)
             y = np.array(t.values)[(x >= tl) & (x <= tr)]
             x = x[(x >= tl) & (x <= tr)]
-            xx.append(x)
-            yy.append(y)
 
-            # exit if we're missing data
-            if len(y) < 3:
-                return
+            # skip if missing data
+            if len(y) > 2:
+                xx.append(x)
+                yy.append(y)
 
         # set interval limits to inner timestamps for series
         for x in xx:
@@ -433,7 +466,7 @@ class Director():
             if x[-1] < tr:
                 tr = x[-1]
 
-        # create a common x-axis for interpolation
+        # create a common x-axis for interpolation for 15 minute period (900s)
         rex = np.arange(tl, tr, 900)
         rey = []
 
@@ -442,13 +475,12 @@ class Director():
             # interpolate
             f = interp1d(xx[i], yy[i], kind='linear')
             rey.append(f(rex))
+
+        # convert from list to numpy array
         rey = np.array(rey)
 
-        # sklearn dbscan implementation
-        c = DBSCAN(eps=self.__dynamic_epsilon(rey)*prm.threshold_modifier, min_samples=prm.minimum_cluster_size).fit(rey)
+        return rex, rey
 
-        # update outlier triggers for each sensor
-        self.__update_outlier_triggers(c.labels_, tl)
 
 
     def __update_outlier_triggers(self, labels, tl):
@@ -521,13 +553,13 @@ class Director():
         # draw sensor data
         sensor = self.temperatures[0]
         for i, sensor in enumerate(self.temperatures):
-            anomaly = np.array(sensor.anomaly)
+            outlier = np.array(sensor.outlier)
             good = np.zeros(len(sensor.values))
             good[:] = sensor.values
-            good[anomaly==1] = None
+            good[outlier==1] = None
             bad  = np.zeros(len(sensor.values))
             bad[:] = sensor.values
-            bad[anomaly==0] = None
+            bad[outlier==0] = None
 
             if i == 0:
                 self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['vb1'], linewidth=1, linestyle=':', label='temperature')
