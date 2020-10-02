@@ -324,7 +324,7 @@ class Director():
                 # reset reconnect counter
                 nth_reconnect = 0
         
-                # get response
+                # get response from API
                 response = requests.get(self.stream_endpoint, auth=(self.username, self.password), headers={'accept':'text/event-stream'}, stream=True, params=self.stream_params)
                 client = sseclient.SSEClient(response)
         
@@ -349,10 +349,10 @@ class Director():
             except requests.exceptions.ChunkedEncodingError:
                 nth_reconnect += 1
                 print('An error occured, reconnection attempt {}/{}'.format(nth_reconnect, n_reconnects))
-            # except KeyError:
-            #     print('Error in event package. Skipping...')
-            #     print(event_data)
-            #     print()
+            except KeyError:
+                print('Error in event package. Skipping...')
+                print(event_data)
+                print()
             
             # wait 1s before attempting to reconnect
             time.sleep(1)
