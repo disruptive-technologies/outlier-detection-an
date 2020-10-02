@@ -196,6 +196,9 @@ class Director():
                 # serve event to desk
                 sensor.new_event_data(event_data)
 
+                return True
+        return False
+
 
     def __fetch_event_history(self):
         """
@@ -335,7 +338,11 @@ class Director():
                     event_data = json.loads(event.data)['result']['event']
         
                     # serve event to director
-                    self.__new_event_data(event_data)
+                    served = self.__new_event_data(event_data)
+
+                    # execute clustering outlier detection
+                    if served:
+                        self.__cluster(time.time())
         
                     # plot progress
                     if not self.args['no_plot']:
@@ -397,6 +404,7 @@ class Director():
             Unixtime at the moment of call.
 
         """
+        print('cluster')
 
         # exit if data is missing
         for t in self.temperatures:
