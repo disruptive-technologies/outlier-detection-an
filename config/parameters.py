@@ -1,7 +1,7 @@
-
+# label name to look for in project
 project_sensor_label = 'outlier_detection'
 
-timestep = 60*60*1       # seconds between each clustering call
+timestep = 60*60*1 # seconds between each clustering call
 window = 60*60*3*1 # width of data window used in clustering [s]
 
 threshold_modifier   = 2 # multiplier for clustering epsilon
