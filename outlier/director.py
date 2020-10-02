@@ -299,6 +299,8 @@ class Director():
 
         # plot
         if not self.args['no_plot']:
+            print('\nThis plot is blocking.')
+            print('Closing it will start a stream with a non-blocking plot.')
             self.plot(blocking=True, show=True)
 
 
@@ -404,7 +406,6 @@ class Director():
             Unixtime at the moment of call.
 
         """
-        print('cluster')
 
         # exit if data is missing
         for t in self.temperatures:
