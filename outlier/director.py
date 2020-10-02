@@ -6,10 +6,10 @@ import argparse
 import datetime
 import requests
 import sseclient
-from scipy.interpolate import interp1d
-from sklearn.cluster import DBSCAN
 import numpy             as np
 import matplotlib.pyplot as plt
+from sklearn.cluster   import DBSCAN
+from scipy.interpolate import interp1d
 
 # project
 from outlier.sensors import Temperature
