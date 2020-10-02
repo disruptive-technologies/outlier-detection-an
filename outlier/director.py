@@ -413,10 +413,10 @@ class Director():
         tr = int(ux_now)
 
         # get data from defined window interval
-        rex, rey = self.__isolate_recent_window(tl, tr)
+        rex, rey, flag = self.__isolate_recent_window(tl, tr)
 
-        # exit if we're missing more than half of our data
-        if len(rey) < len(self.temperatures)*0.5:
+        # don't perform DBSCAN clustering if we're missing data
+        if not flag:
             return
 
         # sklearn dbscan implementation
@@ -455,9 +455,12 @@ class Director():
             x = x[(x >= tl) & (x <= tr)]
 
             # skip if missing data
-            if len(y) > 2:
-                xx.append(x)
-                yy.append(y)
+            if len(y) < 2:
+                return None, None, False
+
+            # append to window list
+            xx.append(x)
+            yy.append(y)
 
         # set interval limits to inner timestamps for series
         for x in xx:
@@ -479,7 +482,7 @@ class Director():
         # convert from list to numpy array
         rey = np.array(rey)
 
-        return rex, rey
+        return rex, rey, True
 
 
 
