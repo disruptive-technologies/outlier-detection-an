@@ -53,9 +53,10 @@ class Director():
 
         # variables
         self.last_update = -1
+        self.cc = 0
 
         # initialise plot styling
-        styling_init()
+        # styling_init()
 
         # set stream endpoint
         self.stream_endpoint = "{}/projects/{}/devices:stream".format(self.api_url_base, self.project_id)
@@ -293,6 +294,8 @@ class Director():
             if self.__check_timestep(unix_now):
                 # execute clustering outlier detection
                 self.__cluster(unix_now)
+
+                self.plot(blocking=True, show=False)
 
             # iterate time
             unix_now += unix_step
@@ -551,7 +554,9 @@ class Director():
 
 
     def initialise_plot(self):
-        self.fig, self.ax = plt.subplots()
+        self.fig = plt.figure(figsize=(15,5))
+        self.ax = self.fig.add_subplot(1,1,1)
+        # self.fig, self.ax = plt.subplots()
 
 
     def plot(self, blocking=True, show=True):
@@ -561,6 +566,7 @@ class Director():
 
         # refresh plot
         self.ax.cla()
+        xr = -np.inf
 
         # draw sensor data
         sensor = self.temperatures[0]
@@ -574,11 +580,21 @@ class Director():
             bad[outlier==0] = None
 
             if i == 0:
-                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['vb1'], linewidth=1, linestyle=':', label='temperature')
-                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss2'], linewidth=2, linestyle='-', label='outlier')
+                self.ax.plot(sensor.unixtime, good, color=stl.colors['vb1'], linewidth=1, linestyle=':', label='temperature')
+                self.ax.plot(sensor.unixtime, bad,  color=stl.colors['ss2'], linewidth=2, linestyle='-', label='outlier')
             else:
-                self.ax.plot(sensor.get_timestamps(), good, color=stl.colors['vb1'], linewidth=1, linestyle=':')
-                self.ax.plot(sensor.get_timestamps(), bad,  color=stl.colors['ss2'], linewidth=2, linestyle='-')
+                self.ax.plot(sensor.unixtime, good, color=stl.colors['vb1'], linewidth=1, linestyle=':')
+                self.ax.plot(sensor.unixtime, bad,  color=stl.colors['ss2'], linewidth=2, linestyle='-')
+
+            if len(sensor.unixtime) > 0 and sensor.unixtime[-1] > xr:
+                xr = sensor.unixtime[-1]
+
+        xl = xr - 60*60*24*5
+        if sensor.unixtime[0] > xl:
+            return
+        # xr = hlp.ux2tx(xr)
+        # xl = hlp.ux2tx(xl)
+
 
         # set axis labels
         self.ax.set_xlabel('timestamp')
@@ -587,7 +603,12 @@ class Director():
         self.ax.spines['top'].set_visible(False)
         self.ax.yaxis.set_ticks_position('left')
         self.ax.xaxis.set_ticks_position('bottom')
-        self.ax.legend()
+        self.ax.legend(loc='upper left')
+        self.ax.set_xlim([xl, xr])
+
+        plt.savefig('/home/kepler/tmp/' + '{:09d}.png'.format(self.cc), dpi=120)
+        self.cc += 1
+        return
 
         if blocking:
             if show:

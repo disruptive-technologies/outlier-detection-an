@@ -19,5 +19,5 @@ if __name__ == '__main__':
     d.run_history(plot=False)
 
     # stream
-    d.run_stream()
+    # d.run_stream()
 
