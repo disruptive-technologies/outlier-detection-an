@@ -13,7 +13,6 @@ from scipy.interpolate import interp1d
 
 # project
 from outlier.sensors import Temperature
-from config.styling  import styling_init
 import outlier.helpers   as hlp
 import config.parameters as prm
 import config.styling    as stl
@@ -53,9 +52,6 @@ class Director():
 
         # variables
         self.last_update = -1
-
-        # initialise plot styling
-        styling_init()
 
         # set stream endpoint
         self.stream_endpoint = "{}/projects/{}/devices:stream".format(self.api_url_base, self.project_id)
