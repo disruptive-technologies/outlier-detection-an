@@ -589,7 +589,7 @@ class Director():
             if len(sensor.unixtime) > 0 and sensor.unixtime[-1] > xr:
                 xr = sensor.unixtime[-1]
 
-        xl = xr - 60*60*24*5
+        xl = xr - 60*60*24*4
         if sensor.unixtime[0] > xl:
             return
         # xr = hlp.ux2tx(xr)
