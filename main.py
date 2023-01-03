@@ -13,7 +13,12 @@ FS = 60 * 15  # resample rate [seconds]
 
 def parse_sysargs() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('project')
+    parser.add_argument(
+        '--project-id',
+        type=str,
+        default='',
+        help='target project ID',
+    )
     parser.add_argument(
         '-f', '--file',
         type=str,
@@ -50,6 +55,10 @@ def parse_sysargs() -> argparse.Namespace:
         help='print debug data',
     )
     args = parser.parse_args()
+
+    # Require either a file or project ID.
+    if len(args.project_id) < 1 and len(args.file) < 1:
+        raise ValueError('provide either --project-id or --file')
 
     # Format comma-separated string of device IDs to list[str].
     if len(args.devices) > 0:
@@ -160,7 +169,7 @@ if __name__ == '__main__':
 
     # Fetch historic data.
     timeaxis, events = fetch_event_history(
-        project_id=args.project,
+        project_id=args.project_id,
         device_ids=args.devices,
         file_path=args.file,
         days=args.days,
