@@ -1,6 +1,4 @@
-requests==2.24.0
-sseclient-py==1.7
-numpy==1.19.2
-matplotlib==3.3.2
-sklearn==0.0
-pandas==1.1.2
+disruptive==1.5.4
+pandas==1.5.2
+scikit-learn==1.2.0
+matplotlib==3.6.2
